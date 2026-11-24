@@ -1,0 +1,17 @@
+build/
+cmake-build-*/
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.exe
+*.stl
+*.obj
+__pycache__/
+*.pyc
+.pytest_cache/
+.vscode/
+.vs/

@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            slug: linux-x64
+          - os: macos-latest
+            slug: macos-universal
+          - os: windows-latest
+            slug: windows-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release
+
+      - name: Run C tests
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package release archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p pkg/include pkg/python
+          cp include/brepmass.h pkg/include/
+          cp python/brepmass.py pkg/python/
+          cp LICENSE README.md pkg/
+          cp build/brepmass build/libbrepmass.* pkg/
+          tar -czf brepmass-${{ github.ref_name }}-${{ matrix.slug }}.tar.gz -C pkg .
+
+      - name: Package release archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg/include, pkg/python | Out-Null
+          Copy-Item include/brepmass.h pkg/include/
+          Copy-Item python/brepmass.py pkg/python/
+          Copy-Item LICENSE, README.md pkg/
+          Copy-Item build/Release/brepmass.exe, build/Release/brepmass.dll, build/Release/brepmass.lib, build/Release/brepmass_static.lib pkg/
+          Compress-Archive -Path pkg/* -DestinationPath brepmass-${{ github.ref_name }}-${{ matrix.slug }}.zip
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            brepmass-*.tar.gz
+            brepmass-*.zip
